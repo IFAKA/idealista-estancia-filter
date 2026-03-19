@@ -161,55 +161,70 @@ async function extractEstanciaMinima(propertyId) {
 
 async function applyFilter(selectedMonths) {
   const cache = await loadCache();
-  console.log('Applying filter for months:', selectedMonths, 'Cache:', cache);
+  console.log('=== FILTER DEBUG ===');
+  console.log('Selected months:', selectedMonths);
+  console.log('Full cache:', cache);
 
-  // Find property cards - try multiple selectors
+  // Find property cards - Idealista uses <a> tags with inmueble hrefs
   let propertyCards = document.querySelectorAll('a[href*="/inmueble/"]');
+  console.log(`Found ${propertyCards.length} property links`);
 
   if (propertyCards.length === 0) {
-    propertyCards = document.querySelectorAll('[data-testid*="property"]');
+    updateStatus('❌ No se encontraron propiedades', false);
+    return;
   }
-
-  console.log(`Found ${propertyCards.length} property cards`);
 
   let shown = 0;
   let hidden = 0;
+  const details = [];
 
-  propertyCards.forEach(card => {
+  propertyCards.forEach((card, index) => {
     // Get the property URL
     const link = card.href || card.getAttribute('href');
     if (!link) return;
 
     // Extract property ID
-    const match = link.match(/inmueble\/(\d+)/);
-    if (!match) return;
+    const idMatch = link.match(/inmueble\/(\d+)/);
+    if (!idMatch) return;
 
-    const propertyId = match[1];
+    const propertyId = idMatch[1];
     const cachedMonths = cache[propertyId];
 
-    // Show property if:
-    // - Filter is empty (Indiferente), OR
-    // - We haven't fetched data yet (show to be safe), OR
-    // - Property's minimum stay <= selected filter value
-    const shouldShow = !selectedMonths ||
-                      cachedMonths === undefined ||
-                      cachedMonths <= parseInt(selectedMonths);
+    // Logic: hide if filter is set AND we have data AND data exceeds filter
+    const shouldHide = selectedMonths &&
+                       cachedMonths !== undefined &&
+                       cachedMonths > parseInt(selectedMonths);
 
-    // Hide the property card container
-    const container = card.closest('li') || card.closest('article') || card.parentElement?.parentElement;
+    const shouldShow = !shouldHide;
+
+    // Find the container to hide - try multiple levels
+    let container = card.closest('li');
+    if (!container) container = card.closest('article');
+    if (!container) container = card.parentElement;
+    if (!container) container = card.parentElement?.parentElement;
+
     if (container) {
+      const currentDisplay = container.style.display;
       container.style.display = shouldShow ? '' : 'none';
-      console.log(`Property ${propertyId}: ${cachedMonths} months - ${shouldShow ? 'SHOW' : 'HIDE'}`);
+
+      const action = shouldShow ? 'SHOW' : 'HIDE';
+      const detail = `ID ${propertyId}: estancia=${cachedMonths}m, filter=${selectedMonths}m → ${action}`;
+      details.push(detail);
+      console.log(detail);
+
       if (shouldShow) shown++;
       else hidden++;
     }
   });
 
+  console.log('Filter results:', { shown, hidden, total: shown + hidden });
+  console.log('===================');
+
   // Update status with filter result
   if (!selectedMonths) {
-    updateStatus(`✓ Mostrando todas las propiedades`, false);
+    updateStatus(`✓ Mostrando todas las propiedades (${shown})`, false);
   } else {
-    updateStatus(`✓ ${shown} propiedades mostradas (${hidden} filtradas)`, false);
+    updateStatus(`✓ ${shown} propiedades (${hidden} filtradas por estancia ≥ ${selectedMonths}m)`, false);
   }
 }
 
