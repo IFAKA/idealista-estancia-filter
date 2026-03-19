@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Idealista Estancia Minima Filter",
+  "version": "1.0.0",
+  "description": "Filter Idealista properties by minimum stay duration",
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.idealista.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.idealista.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ]
+    }
+  ]
+}
