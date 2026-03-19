@@ -2,23 +2,52 @@
 
 const CACHE_KEY = 'estancia_cache';
 
+// Update status message in the filter widget
+function updateStatus(message, isLoading = true) {
+  const statusText = document.getElementById('estancia-status-text');
+  const spinner = document.getElementById('estancia-loading-spinner');
+
+  if (statusText) {
+    statusText.textContent = message;
+  }
+
+  if (spinner) {
+    spinner.style.display = isLoading ? 'inline-block' : 'none';
+  }
+}
+
 async function collectPropertyData(propertyIds) {
   const cache = await loadCache();
   const uncachedIds = propertyIds.filter(id => !(id in cache));
 
-  console.log(`Cache has ${propertyIds.length - uncachedIds.length} properties, fetching ${uncachedIds.length} new ones`);
+  const cached = propertyIds.length - uncachedIds.length;
+  console.log(`Cache has ${cached} properties, fetching ${uncachedIds.length} new ones`);
+
+  if (uncachedIds.length === 0) {
+    updateStatus(`✓ ${cached} propiedades en caché`, false);
+    return;
+  }
 
   // Process uncached properties sequentially (avoid rate limiting)
-  for (const propertyId of uncachedIds) {
+  for (let i = 0; i < uncachedIds.length; i++) {
+    const propertyId = uncachedIds[i];
     const months = await extractEstanciaMinima(propertyId);
     if (months !== null) {
       await setCachedMonths(propertyId, months);
       console.log(`Cached property ${propertyId}: ${months} months`);
     }
 
+    // Update progress
+    const processed = cached + i + 1;
+    const remaining = uncachedIds.length - i - 1;
+    updateStatus(`${processed} / ${propertyIds.length} propiedades cargadas${remaining > 0 ? ` (${remaining} restantes)` : ''}`);
+
     // Add small delay between requests
     await new Promise(resolve => setTimeout(resolve, 300));
   }
+
+  // Done
+  updateStatus(`✓ ${propertyIds.length} propiedades listas`, false);
 }
 
 // Inject filter widget into the existing filter form
@@ -42,6 +71,10 @@ function injectFilterWidget() {
       <option value="6">6 meses</option>
       <option value="12">12 meses</option>
     </select>
+    <div id="estancia-status" style="margin-top: 8px; font-size: 12px; color: #666;">
+      <span id="estancia-loading-spinner" style="display: inline-block; margin-right: 4px;">⏳</span>
+      <span id="estancia-status-text">Cargando datos...</span>
+    </div>
   `;
 
   // Insert after the price filter
@@ -64,6 +97,9 @@ function injectFilterWidget() {
   // Extract property IDs and start background collection
   const propertyIds = extractPropertyIds();
   window.estanciaPropertyIds = propertyIds;
+
+  // Update status
+  updateStatus(`Cargando ${propertyIds.length} propiedades...`);
 
   // Start background collection (don't await, let it run in background)
   collectPropertyData(propertyIds);
@@ -136,6 +172,9 @@ async function applyFilter(selectedMonths) {
 
   console.log(`Found ${propertyCards.length} property cards`);
 
+  let shown = 0;
+  let hidden = 0;
+
   propertyCards.forEach(card => {
     // Get the property URL
     const link = card.href || card.getAttribute('href');
@@ -161,8 +200,17 @@ async function applyFilter(selectedMonths) {
     if (container) {
       container.style.display = shouldShow ? '' : 'none';
       console.log(`Property ${propertyId}: ${cachedMonths} months - ${shouldShow ? 'SHOW' : 'HIDE'}`);
+      if (shouldShow) shown++;
+      else hidden++;
     }
   });
+
+  // Update status with filter result
+  if (!selectedMonths) {
+    updateStatus(`✓ Mostrando todas las propiedades`, false);
+  } else {
+    updateStatus(`✓ ${shown} propiedades mostradas (${hidden} filtradas)`, false);
+  }
 }
 
 // Add event listener to dropdown
