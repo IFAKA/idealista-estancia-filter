@@ -33,6 +33,28 @@ function injectFilterWidget() {
   pageContent.insertBefore(widget, pageContent.firstChild);
 }
 
+function extractPropertyIds() {
+  const propertyIds = [];
+
+  // Find property cards - Idealista uses data-testid or specific class patterns
+  const propertyCards = document.querySelectorAll('[data-testid*="property-card"]') ||
+                       document.querySelectorAll('article.property-card') ||
+                       document.querySelectorAll('a[href*="/inmueble/"]');
+
+  propertyCards.forEach(card => {
+    // Extract ID from URL: /inmueble/87140652/
+    const link = card.href || card.querySelector('a')?.href;
+    if (link) {
+      const match = link.match(/inmueble\/(\d+)/);
+      if (match) {
+        propertyIds.push(match[1]);
+      }
+    }
+  });
+
+  return [...new Set(propertyIds)]; // Remove duplicates
+}
+
 // Initialize on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', injectFilterWidget);
