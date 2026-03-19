@@ -21,35 +21,57 @@ async function collectPropertyData(propertyIds) {
   }
 }
 
-// Inject filter widget at top of listings
+// Inject filter widget into the existing filter form
 function injectFilterWidget() {
-  // Only run on listing pages (contains property cards)
-  const listingContainer = document.querySelector('[data-testid="property-list"]') ||
-                          document.querySelector('ul.property-list');
+  // Find the filter form
+  const filterForm = document.querySelector('#filter-form');
+  if (!filterForm) return;
 
-  if (!listingContainer) return;
-
-  // Create widget HTML
-  const widget = document.createElement('div');
-  widget.id = 'estancia-filter-widget';
-  widget.innerHTML = `
-    <div class="estancia-filter-container">
-      <label for="estancia-dropdown">Filter by minimum stay:</label>
-      <select id="estancia-dropdown">
-        <option value="">All</option>
-        <option value="1">1 month</option>
-        <option value="2">2 months</option>
-        <option value="3">3 months</option>
-        <option value="4">4 months</option>
-        <option value="6">6 months</option>
-        <option value="12">12 months</option>
-      </select>
+  // Create filter item matching Idealista's existing filter structure
+  const filterItem = document.createElement('div');
+  filterItem.className = 'item-form dropdown-filter';
+  filterItem.id = 'estancia-minima-filter';
+  filterItem.innerHTML = `
+    <span class="title-label">Estancia mínima</span>
+    <div class="dropdown-list">
+      <input type="hidden" name="adfilter_estancia_minima" value="default">
+      <button class="dropdown-wrapper" id="estancia-dropdown" type="button" data-role="link-dropdown">
+        <span class="placeholder">Indiferente</span>
+        <ul class="dropdown">
+          <li data-value="default">Indiferente</li>
+          <li data-value="1">1 mes</li>
+          <li data-value="2">2 meses</li>
+          <li data-value="3">3 meses</li>
+          <li data-value="4">4 meses</li>
+          <li data-value="6">6 meses</li>
+          <li data-value="12">12 meses</li>
+        </ul>
+      </button>
+      <ul class="dropdown-list">
+        <li data-value="default" selected="selected">Indiferente</li>
+        <li data-value="1">1 mes</li>
+        <li data-value="2">2 meses</li>
+        <li data-value="3">3 meses</li>
+        <li data-value="4">4 meses</li>
+        <li data-value="6">6 meses</li>
+        <li data-value="12">12 meses</li>
+      </ul>
     </div>
   `;
 
-  // Insert at top of page
-  const pageContent = document.querySelector('main') || document.body;
-  pageContent.insertBefore(widget, pageContent.firstChild);
+  // Insert after the price filter (find the last item-form with id containing 'price')
+  const priceFilter = document.querySelector('#price-filter-container');
+  if (priceFilter && priceFilter.nextElementSibling) {
+    priceFilter.parentNode.insertBefore(filterItem, priceFilter.nextElementSibling);
+  } else {
+    // Fallback: insert as last filter before reset button
+    const resetButton = document.querySelector('#reset-filters');
+    if (resetButton) {
+      resetButton.parentNode.insertBefore(filterItem, resetButton);
+    } else {
+      filterForm.appendChild(filterItem);
+    }
+  }
 
   // Set up filter listener
   setupFilterListener();
@@ -150,11 +172,41 @@ async function applyFilter(selectedMonths) {
 
 // Add event listener to dropdown
 function setupFilterListener() {
-  const dropdown = document.getElementById('estancia-dropdown');
-  if (!dropdown) return;
+  const filterItem = document.getElementById('estancia-minima-filter');
+  if (!filterItem) return;
 
-  dropdown.addEventListener('change', (e) => {
-    applyFilter(e.target.value);
+  // Get both the dropdown menu items and the button
+  const dropdownItems = filterItem.querySelectorAll('.dropdown-list li');
+  const dropdownButton = filterItem.querySelector('.dropdown-wrapper');
+
+  // Add click listener to each dropdown item
+  dropdownItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      const value = item.getAttribute('data-value');
+
+      // Update the button text
+      if (dropdownButton) {
+        const textMap = {
+          'default': 'Indiferente',
+          '1': '1 mes',
+          '2': '2 meses',
+          '3': '3 meses',
+          '4': '4 meses',
+          '6': '6 meses',
+          '12': '12 meses'
+        };
+        dropdownButton.querySelector('.placeholder').textContent = textMap[value] || 'Indiferente';
+      }
+
+      // Update the hidden input
+      const hiddenInput = filterItem.querySelector('input[type="hidden"]');
+      if (hiddenInput) {
+        hiddenInput.value = value;
+      }
+
+      // Apply filter
+      applyFilter(value === 'default' ? '' : value);
+    });
   });
 }
 
