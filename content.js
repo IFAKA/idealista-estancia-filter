@@ -51,6 +51,9 @@ function injectFilterWidget() {
   const pageContent = document.querySelector('main') || document.body;
   pageContent.insertBefore(widget, pageContent.firstChild);
 
+  // Set up filter listener
+  setupFilterListener();
+
   // Extract property IDs and start background collection
   const propertyIds = extractPropertyIds();
   window.estanciaPropertyIds = propertyIds;
@@ -111,6 +114,48 @@ async function extractEstanciaMinima(propertyId) {
     console.error(`Error fetching property ${propertyId}:`, error);
     return null;
   }
+}
+
+async function applyFilter(selectedMonths) {
+  const cache = await loadCache();
+  const propertyCards = document.querySelectorAll('[data-testid*="property-card"]') ||
+                       document.querySelectorAll('article.property-card') ||
+                       document.querySelectorAll('a[href*="/inmueble/"]');
+
+  propertyCards.forEach(card => {
+    const link = card.href || card.querySelector('a')?.href;
+    if (!link) return;
+
+    const match = link.match(/inmueble\/(\d+)/);
+    if (!match) return;
+
+    const propertyId = match[1];
+    const cachedMonths = cache[propertyId];
+
+    // Show property if:
+    // - Filter is "All" (selectedMonths is empty), OR
+    // - We haven't fetched data yet (show to avoid hiding too much), OR
+    // - Property's minimum stay <= selected filter
+    const shouldShow = !selectedMonths ||
+                      cachedMonths === undefined ||
+                      cachedMonths <= parseInt(selectedMonths);
+
+    // Get the container element (parent of card)
+    const container = card.closest('article') || card.closest('li') || card.parentElement;
+    if (container) {
+      container.style.display = shouldShow ? '' : 'none';
+    }
+  });
+}
+
+// Add event listener to dropdown
+function setupFilterListener() {
+  const dropdown = document.getElementById('estancia-dropdown');
+  if (!dropdown) return;
+
+  dropdown.addEventListener('change', (e) => {
+    applyFilter(e.target.value);
+  });
 }
 
 function extractPropertyIds() {
