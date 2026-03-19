@@ -243,23 +243,53 @@ function setupFilterListener() {
 function extractPropertyIds() {
   const propertyIds = [];
 
-  // Find property cards - Idealista uses data-testid or specific class patterns
-  const propertyCards = document.querySelectorAll('[data-testid*="property-card"]') ||
-                       document.querySelectorAll('article.property-card') ||
-                       document.querySelectorAll('a[href*="/inmueble/"]');
+  console.log('=== EXTRACTING PROPERTY IDS ===');
 
-  propertyCards.forEach(card => {
+  // Try multiple selectors to find property cards
+  let propertyCards = [];
+
+  // Selector 1: Links with /inmueble/ in href
+  propertyCards = document.querySelectorAll('a[href*="/inmueble/"]');
+  console.log(`Selector 'a[href*="/inmueble/"]': found ${propertyCards.length}`);
+
+  // Selector 2: Data-testid
+  if (propertyCards.length === 0) {
+    propertyCards = document.querySelectorAll('[data-testid*="property"]');
+    console.log(`Selector '[data-testid*="property"]': found ${propertyCards.length}`);
+  }
+
+  // Selector 3: Article tags
+  if (propertyCards.length === 0) {
+    propertyCards = document.querySelectorAll('article');
+    console.log(`Selector 'article': found ${propertyCards.length}`);
+  }
+
+  // Selector 4: List items that might contain property links
+  if (propertyCards.length === 0) {
+    const listItems = document.querySelectorAll('li a[href*="/inmueble/"]');
+    console.log(`Selector 'li a[href*="/inmueble/"]': found ${listItems.length}`);
+    propertyCards = listItems;
+  }
+
+  console.log(`Total elements to check: ${propertyCards.length}`);
+
+  propertyCards.forEach((card, idx) => {
     // Extract ID from URL: /inmueble/87140652/
-    const link = card.href || card.querySelector('a')?.href;
+    const link = card.href || card.getAttribute('href');
     if (link) {
       const match = link.match(/inmueble\/(\d+)/);
       if (match) {
         propertyIds.push(match[1]);
+        if (idx < 3) console.log(`  [${idx}] Found ID: ${match[1]} from ${link}`);
       }
     }
   });
 
-  return [...new Set(propertyIds)]; // Remove duplicates
+  const unique = [...new Set(propertyIds)];
+  console.log(`Extracted ${unique.length} unique property IDs`);
+  console.log('================================');
+
+  return unique;
 }
 
 // Initialize on page load
