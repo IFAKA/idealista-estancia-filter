@@ -58,6 +58,35 @@ async function setCachedMonths(propertyId, months) {
   await saveCache(cache);
 }
 
+async function extractEstanciaMinima(propertyId) {
+  try {
+    const detailUrl = `https://www.idealista.com/inmueble/${propertyId}/`;
+    const response = await fetch(detailUrl);
+    const html = await response.text();
+
+    // Parse HTML to find <li>Estancia mínima de X meses</li>
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Look for the specific text pattern
+    const liElements = doc.querySelectorAll('li');
+    for (let li of liElements) {
+      if (li.textContent.includes('Estancia mínima')) {
+        const match = li.textContent.match(/(\d+)\s*mes/);
+        if (match) {
+          return parseInt(match[1]);
+        }
+      }
+    }
+
+    // If not found, treat as no restriction
+    return null;
+  } catch (error) {
+    console.error(`Error fetching property ${propertyId}:`, error);
+    return null;
+  }
+}
+
 function extractPropertyIds() {
   const propertyIds = [];
 
