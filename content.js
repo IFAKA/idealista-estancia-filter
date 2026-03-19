@@ -33,6 +33,31 @@ function injectFilterWidget() {
   pageContent.insertBefore(widget, pageContent.firstChild);
 }
 
+async function loadCache() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([CACHE_KEY], (result) => {
+      resolve(result[CACHE_KEY] || {});
+    });
+  });
+}
+
+async function saveCache(cache) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [CACHE_KEY]: cache }, resolve);
+  });
+}
+
+async function getCachedMonths(propertyId) {
+  const cache = await loadCache();
+  return cache[propertyId];
+}
+
+async function setCachedMonths(propertyId, months) {
+  const cache = await loadCache();
+  cache[propertyId] = months;
+  await saveCache(cache);
+}
+
 function extractPropertyIds() {
   const propertyIds = [];
 
