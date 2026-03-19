@@ -27,39 +27,24 @@ function injectFilterWidget() {
   const filterForm = document.querySelector('#filter-form');
   if (!filterForm) return;
 
-  // Create filter item matching Idealista's existing filter structure
+  // Create filter item with simple select element
   const filterItem = document.createElement('div');
-  filterItem.className = 'item-form dropdown-filter';
+  filterItem.className = 'item-form';
   filterItem.id = 'estancia-minima-filter';
   filterItem.innerHTML = `
     <span class="title-label">Estancia mínima</span>
-    <div class="dropdown-list">
-      <input type="hidden" name="adfilter_estancia_minima" value="default">
-      <button class="dropdown-wrapper" id="estancia-dropdown" type="button" data-role="link-dropdown">
-        <span class="placeholder">Indiferente</span>
-        <ul class="dropdown">
-          <li data-value="default">Indiferente</li>
-          <li data-value="1">1 mes</li>
-          <li data-value="2">2 meses</li>
-          <li data-value="3">3 meses</li>
-          <li data-value="4">4 meses</li>
-          <li data-value="6">6 meses</li>
-          <li data-value="12">12 meses</li>
-        </ul>
-      </button>
-      <ul class="dropdown-list">
-        <li data-value="default" selected="selected">Indiferente</li>
-        <li data-value="1">1 mes</li>
-        <li data-value="2">2 meses</li>
-        <li data-value="3">3 meses</li>
-        <li data-value="4">4 meses</li>
-        <li data-value="6">6 meses</li>
-        <li data-value="12">12 meses</li>
-      </ul>
-    </div>
+    <select id="estancia-dropdown" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; cursor: pointer; width: 100%; max-width: 200px;">
+      <option value="">Indiferente</option>
+      <option value="1">1 mes</option>
+      <option value="2">2 meses</option>
+      <option value="3">3 meses</option>
+      <option value="4">4 meses</option>
+      <option value="6">6 meses</option>
+      <option value="12">12 meses</option>
+    </select>
   `;
 
-  // Insert after the price filter (find the last item-form with id containing 'price')
+  // Insert after the price filter
   const priceFilter = document.querySelector('#price-filter-container');
   if (priceFilter && priceFilter.nextElementSibling) {
     priceFilter.parentNode.insertBefore(filterItem, priceFilter.nextElementSibling);
@@ -140,14 +125,23 @@ async function extractEstanciaMinima(propertyId) {
 
 async function applyFilter(selectedMonths) {
   const cache = await loadCache();
-  const propertyCards = document.querySelectorAll('[data-testid*="property-card"]') ||
-                       document.querySelectorAll('article.property-card') ||
-                       document.querySelectorAll('a[href*="/inmueble/"]');
+  console.log('Applying filter for months:', selectedMonths, 'Cache:', cache);
+
+  // Find property cards - try multiple selectors
+  let propertyCards = document.querySelectorAll('a[href*="/inmueble/"]');
+
+  if (propertyCards.length === 0) {
+    propertyCards = document.querySelectorAll('[data-testid*="property"]');
+  }
+
+  console.log(`Found ${propertyCards.length} property cards`);
 
   propertyCards.forEach(card => {
-    const link = card.href || card.querySelector('a')?.href;
+    // Get the property URL
+    const link = card.href || card.getAttribute('href');
     if (!link) return;
 
+    // Extract property ID
     const match = link.match(/inmueble\/(\d+)/);
     if (!match) return;
 
@@ -155,58 +149,31 @@ async function applyFilter(selectedMonths) {
     const cachedMonths = cache[propertyId];
 
     // Show property if:
-    // - Filter is "All" (selectedMonths is empty), OR
-    // - We haven't fetched data yet (show to avoid hiding too much), OR
-    // - Property's minimum stay <= selected filter
+    // - Filter is empty (Indiferente), OR
+    // - We haven't fetched data yet (show to be safe), OR
+    // - Property's minimum stay <= selected filter value
     const shouldShow = !selectedMonths ||
                       cachedMonths === undefined ||
                       cachedMonths <= parseInt(selectedMonths);
 
-    // Get the container element (parent of card)
-    const container = card.closest('article') || card.closest('li') || card.parentElement;
+    // Hide the property card container
+    const container = card.closest('li') || card.closest('article') || card.parentElement?.parentElement;
     if (container) {
       container.style.display = shouldShow ? '' : 'none';
+      console.log(`Property ${propertyId}: ${cachedMonths} months - ${shouldShow ? 'SHOW' : 'HIDE'}`);
     }
   });
 }
 
 // Add event listener to dropdown
 function setupFilterListener() {
-  const filterItem = document.getElementById('estancia-minima-filter');
-  if (!filterItem) return;
+  const dropdown = document.getElementById('estancia-dropdown');
+  if (!dropdown) return;
 
-  // Get both the dropdown menu items and the button
-  const dropdownItems = filterItem.querySelectorAll('.dropdown-list li');
-  const dropdownButton = filterItem.querySelector('.dropdown-wrapper');
-
-  // Add click listener to each dropdown item
-  dropdownItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      const value = item.getAttribute('data-value');
-
-      // Update the button text
-      if (dropdownButton) {
-        const textMap = {
-          'default': 'Indiferente',
-          '1': '1 mes',
-          '2': '2 meses',
-          '3': '3 meses',
-          '4': '4 meses',
-          '6': '6 meses',
-          '12': '12 meses'
-        };
-        dropdownButton.querySelector('.placeholder').textContent = textMap[value] || 'Indiferente';
-      }
-
-      // Update the hidden input
-      const hiddenInput = filterItem.querySelector('input[type="hidden"]');
-      if (hiddenInput) {
-        hiddenInput.value = value;
-      }
-
-      // Apply filter
-      applyFilter(value === 'default' ? '' : value);
-    });
+  dropdown.addEventListener('change', (e) => {
+    const value = e.target.value;
+    console.log('Estancia filter changed to:', value);
+    applyFilter(value);
   });
 }
 
