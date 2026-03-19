@@ -2,6 +2,25 @@
 
 const CACHE_KEY = 'estancia_cache';
 
+async function collectPropertyData(propertyIds) {
+  const cache = await loadCache();
+  const uncachedIds = propertyIds.filter(id => !(id in cache));
+
+  console.log(`Cache has ${propertyIds.length - uncachedIds.length} properties, fetching ${uncachedIds.length} new ones`);
+
+  // Process uncached properties sequentially (avoid rate limiting)
+  for (const propertyId of uncachedIds) {
+    const months = await extractEstanciaMinima(propertyId);
+    if (months !== null) {
+      await setCachedMonths(propertyId, months);
+      console.log(`Cached property ${propertyId}: ${months} months`);
+    }
+
+    // Add small delay between requests
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+}
+
 // Inject filter widget at top of listings
 function injectFilterWidget() {
   // Only run on listing pages (contains property cards)
@@ -31,6 +50,13 @@ function injectFilterWidget() {
   // Insert at top of page
   const pageContent = document.querySelector('main') || document.body;
   pageContent.insertBefore(widget, pageContent.firstChild);
+
+  // Extract property IDs and start background collection
+  const propertyIds = extractPropertyIds();
+  window.estanciaPropertyIds = propertyIds;
+
+  // Start background collection (don't await, let it run in background)
+  collectPropertyData(propertyIds);
 }
 
 async function loadCache() {
