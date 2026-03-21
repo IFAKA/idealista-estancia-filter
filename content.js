@@ -302,27 +302,42 @@ async function applyFilter(selectedMonths) {
 }
 
 function injectDetails(card, details) {
+  // Ensure all fields exist even if cached entry is incomplete/old format
+  const safeDetails = {
+    minStay: details.minStay || null,
+    available: details.available || null,
+    lookingFor: {
+      gender: null, age: null, couple: null, minor: null,
+      ...(details.lookingFor || {})
+    },
+    rules: {
+      smoking: null, pets: null,
+      ...(details.rules || {})
+    },
+    roommates: {
+      total: null, gender: null, occupation: null, atmosphere: null,
+      ...(details.roommates || {})
+    },
+    features: {
+      bed: null, furnished: null,
+      ...(details.features || {})
+    }
+  };
+
   // Find where to inject
-  // We want to inject into .item-info-container, after .item-detail-char or .item-price
   let infoContainer = card.closest('.item-info-container');
   if (!infoContainer) {
-    // Fallback: try to find it relative to the link
     const container = card.closest('article');
     if (container) infoContainer = container.querySelector('.item-info-container');
   }
 
   if (!infoContainer) return;
 
-  // Check if already injected
-  if (infoContainer.querySelector('.extension-details-row')) {
-     // Optional: update content? For now, skip
-     return;
-  }
+  if (infoContainer.querySelector('.extension-details-row')) return;
 
   const detailsRow = document.createElement('div');
   detailsRow.className = 'extension-details-row';
 
-  // Helper to add item
   const addItem = (icon, text, type = 'neutral') => {
     if (!text && !icon) return;
     const span = document.createElement('span');
@@ -332,39 +347,38 @@ function injectDetails(card, details) {
   };
 
   // 1. Min Stay
-  if (details.minStay) {
-    addItem('📅', `> ${details.minStay} meses`);
+  if (safeDetails.minStay) {
+    addItem('📅', `> ${safeDetails.minStay} meses`);
   }
 
   // 2. Rules
-  if (details.rules.smoking === false) addItem('🚫', 'No fumadores', 'warning');
-  else if (details.rules.smoking === true) addItem('🚬', 'Fumadores OK');
+  if (safeDetails.rules.smoking === false) addItem('🚫', 'No fumadores', 'warning');
+  else if (safeDetails.rules.smoking === true) addItem('🚬', 'Fumadores OK');
 
-  if (details.rules.pets === false) addItem('🚫', 'No mascotas', 'warning');
-  else if (details.rules.pets === true) addItem('🐶', 'Mascotas OK', 'success');
+  if (safeDetails.rules.pets === false) addItem('🚫', 'No mascotas', 'warning');
+  else if (safeDetails.rules.pets === true) addItem('🐶', 'Mascotas OK', 'success');
   
-  if (details.lookingFor.couple === false) addItem('🚫', 'No parejas', 'warning');
+  if (safeDetails.lookingFor.couple === false) addItem('🚫', 'No parejas', 'warning');
 
   // 3. Roommates
-  if (details.roommates.gender) {
+  if (safeDetails.roommates.gender) {
     let icon = '👥';
-    const lower = details.roommates.gender.toLowerCase();
+    const lower = safeDetails.roommates.gender.toLowerCase();
     if (lower.includes('chicas') && !lower.includes('chicos')) icon = '👩';
     if (lower.includes('chicos') && !lower.includes('chicas')) icon = '👨';
-    addItem(icon, details.roommates.gender);
+    addItem(icon, safeDetails.roommates.gender);
   }
 
   // 4. Room Features
-  if (details.features && details.features.bed) {
+  if (safeDetails.features.bed) {
     const bedIcon = '🛏️';
-    const bedText = details.features.bed.replace('Cama ', ''); // 'doble' or 'simple'
+    const bedText = safeDetails.features.bed.replace('Cama ', '');
     addItem(bedIcon, bedText);
   }
 
   // 5. Availability
-  if (details.available && !details.available.includes('Ya')) {
-      // Shorten "Disponible a partir de..."
-      const shortDate = details.available.replace('Disponible a partir del ', 'Desde ');
+  if (safeDetails.available && !safeDetails.available.includes('Ya')) {
+      const shortDate = safeDetails.available.replace('Disponible a partir del ', 'Desde ');
       addItem('⏳', shortDate);
   }
 
