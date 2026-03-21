@@ -402,6 +402,30 @@ function getCardContainer(card) {
   return container;
 }
 
+// Add event listener to dropdown
+function setupFilterListener() {
+  const dropdown = document.getElementById('estancia-dropdown');
+  if (!dropdown) return;
+
+  // Load saved filter value
+  chrome.storage.local.get([FILTER_KEY], (result) => {
+    const savedValue = result[FILTER_KEY] || '';
+    dropdown.value = savedValue;
+    // Apply the saved filter
+    if (savedValue) {
+      applyFilter(savedValue);
+    }
+  });
+
+  dropdown.addEventListener('change', (e) => {
+    const value = e.target.value;
+    console.log('Estancia filter changed to:', value);
+    // Save the filter value
+    chrome.storage.local.set({ [FILTER_KEY]: value });
+    applyFilter(value);
+  });
+}
+
 function extractPropertyIds() {
   const propertyIds = [];
   const cards = getPropertyCards();
