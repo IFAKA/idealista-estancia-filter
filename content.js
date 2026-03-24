@@ -2,6 +2,7 @@
 
 const CACHE_KEY = 'estancia_cache';
 const FILTER_KEY = 'estancia_filter';
+const CHAT_FILTER_KEY = 'estancia_chat_filter';
 
 // Update status message in the filter widget
 function updateStatus(message, isLoading = true) {
@@ -94,6 +95,10 @@ function injectFilterWidget() {
       <option value="6">6 meses</option>
       <option value="12">12 meses</option>
     </select>
+    <label style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; cursor: pointer;">
+      <input type="checkbox" id="estancia-chat-only">
+      Solo con chat disponible
+    </label>
     <div id="estancia-status" style="margin-top: 8px; font-size: 12px; color: #666;">
       <span id="estancia-loading-spinner" style="display: inline-block; margin-right: 4px;">⏳</span>
       <span id="estancia-status-text">Cargando datos...</span>
@@ -245,6 +250,19 @@ async function extractPropertyDetails(propertyId) {
       }
     });
 
+    // 5. Chat availability
+    const contactSection = doc.querySelector('.module-contact');
+    if (contactSection) {
+      const lastMessage = contactSection.querySelector('.lastMessage');
+      const noChatForm = contactSection.querySelector('.no-contact-form');
+      const chatButton = contactSection.querySelector('.button-chat');
+      if (lastMessage || noChatForm) {
+        details.canChat = false;
+      } else if (chatButton) {
+        details.canChat = true;
+      }
+    }
+
     return details;
 
   } catch (error) {
@@ -255,9 +273,12 @@ async function extractPropertyDetails(propertyId) {
 
 async function applyFilter(selectedMonths) {
   const cache = await loadCache();
-  
+
   const propertyCards = getPropertyCards();
   if (propertyCards.length === 0) return;
+
+  const chatOnlyCheckbox = document.getElementById('estancia-chat-only');
+  const chatOnly = chatOnlyCheckbox ? chatOnlyCheckbox.checked : false;
 
   let shown = 0;
   let hidden = 0;
@@ -267,7 +288,7 @@ async function applyFilter(selectedMonths) {
     if (!propertyId) return;
 
     let cachedData = cache[propertyId];
-    
+
     // Handle old cache format (number)
     if (typeof cachedData === 'number') {
        cachedData = { minStay: cachedData };
@@ -279,6 +300,9 @@ async function applyFilter(selectedMonths) {
       if (cachedData.minStay > parseInt(selectedMonths)) {
         shouldShow = false;
       }
+    }
+    if (chatOnly && cachedData && cachedData.canChat === false) {
+      shouldShow = false;
     }
 
     // Toggle Visibility
@@ -294,10 +318,10 @@ async function applyFilter(selectedMonths) {
     }
   });
 
-  if (!selectedMonths) {
+  if (!selectedMonths && !chatOnly) {
     updateStatus(`✓ Mostrando todas las propiedades (${shown})`, false);
   } else {
-    updateStatus(`✓ ${shown} propiedades (${hidden} filtradas por estancia ≥ ${selectedMonths}m)`, false);
+    updateStatus(`✓ ${shown} propiedades (${hidden} filtradas)`, false);
   }
 }
 
@@ -416,28 +440,37 @@ function getCardContainer(card) {
   return container;
 }
 
-// Add event listener to dropdown
+// Add event listener to dropdown and chat checkbox
 function setupFilterListener() {
   const dropdown = document.getElementById('estancia-dropdown');
   if (!dropdown) return;
 
-  // Load saved filter value
-  chrome.storage.local.get([FILTER_KEY], (result) => {
+  const chatCheckbox = document.getElementById('estancia-chat-only');
+
+  // Load saved filter values
+  chrome.storage.local.get([FILTER_KEY, CHAT_FILTER_KEY], (result) => {
     const savedValue = result[FILTER_KEY] || '';
     dropdown.value = savedValue;
-    // Apply the saved filter
-    if (savedValue) {
-      applyFilter(savedValue);
+
+    if (chatCheckbox) {
+      chatCheckbox.checked = result[CHAT_FILTER_KEY] || false;
     }
+
+    applyFilter(savedValue);
   });
 
   dropdown.addEventListener('change', (e) => {
     const value = e.target.value;
-    console.log('Estancia filter changed to:', value);
-    // Save the filter value
     chrome.storage.local.set({ [FILTER_KEY]: value });
     applyFilter(value);
   });
+
+  if (chatCheckbox) {
+    chatCheckbox.addEventListener('change', () => {
+      chrome.storage.local.set({ [CHAT_FILTER_KEY]: chatCheckbox.checked });
+      applyFilter(dropdown.value);
+    });
+  }
 }
 
 function extractPropertyIds() {
