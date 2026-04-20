@@ -154,7 +154,8 @@ async function extractPropertyDetails(propertyId) {
       lookingFor: { gender: null, age: null, couple: null, minor: null },
       rules: { smoking: null, pets: null },
       roommates: { count: null, gender: null, occupation: null, atmosphere: null },
-      features: { bed: null, furnished: null }
+      features: { bed: null, furnished: null },
+      empadronamiento: false
     };
 
     // --- Parsing Logic ---
@@ -245,7 +246,12 @@ async function extractPropertyDetails(propertyId) {
       }
     });
 
-    // 5. Chat availability
+    // 5. Empadronamiento mention
+    if (/empadron/i.test(doc.body.textContent)) {
+      details.empadronamiento = true;
+    }
+
+    // 6. Chat availability
     const contactSection = doc.querySelector('.module-contact');
     if (contactSection) {
       const lastMessage = contactSection.querySelector('.lastMessage');
@@ -322,6 +328,7 @@ function injectDetails(card, details) {
   const safeDetails = {
     minStay: details.minStay || null,
     available: details.available || null,
+    empadronamiento: details.empadronamiento || false,
     lookingFor: {
       gender: null, age: null, couple: null, minor: null,
       ...(details.lookingFor || {})
@@ -396,6 +403,11 @@ function injectDetails(card, details) {
   if (safeDetails.available && !safeDetails.available.includes('Ya')) {
       const shortDate = safeDetails.available.replace('Disponible a partir del ', 'Desde ');
       addItem('⏳', shortDate);
+  }
+
+  // 6. Empadronamiento
+  if (safeDetails.empadronamiento) {
+    addItem('⚠️', 'Empadronamiento', 'warning');
   }
 
   // Find insertion point: After .item-detail-char
