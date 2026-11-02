@@ -54,3 +54,11 @@ No data is sent to external servers:
 - **JavaScript:** Vanilla (no dependencies)
 - **Storage:** Chrome Storage Local API
 - **Content Script:** Runs on idealista.com only
+
+---
+
+## Support
+
+If this project is useful to you, you can support my work:
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/zfaka)
